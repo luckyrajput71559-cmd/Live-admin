@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signature Edition V3 - Ultra Fast Sync</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: rgba(10, 15, 28, 0.95); --gold: #facc15; --white: #fff; --strike: #22c55e; --blue: #3b82f6; --red: #ef4444; --yellow: #facc15; --orange: #f97316; }
+        body { margin: 0; padding: 0; background: transparent; font-family: 'Roboto', sans-serif; height: 100vh; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 25px; overflow: hidden; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+        
+        .player-card { position: absolute; width: 260px; height: 85px; background: var(--bg); border-radius: 12px; display: flex; align-items: center; padding: 8px; transition: 0.5s cubic-bezier(0.19, 1, 0.22, 1); box-shadow: 0 15px 35px rgba(0,0,0,0.7); z-index: 2000; color: white; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
+        #p-card-1 { bottom: 145px; left: -350px; border-left: 5px solid var(--gold); }
+        #p-card-1.show { left: 15px; }
+        #p-card-2 { bottom: 145px; right: -350px; border-right: 5px solid var(--gold); flex-direction: row-reverse; text-align: right; }
+        #p-card-2.show { right: 15px; }
+        #p-card-bw { top: -150px; left: 50%; transform: translateX(-50%); border-bottom: 5px solid var(--gold); width: 280px; }
+        #p-card-bw.show { top: 45px; }
+
+        .p-img { width: 65px; height: 65px; border-radius: 8px; object-fit: cover; background: #222; border: 2px solid var(--gold); }
+        #p-card-2 .p-img { margin-left: 12px; margin-right: 0; }
+        .p-details h2 { margin: 0; font-family: 'Oswald', sans-serif; font-size: 19px; text-transform: uppercase; color: var(--gold); letter-spacing: 0.5px; }
+        .p-details p { margin: 2px 0 0; font-size: 13px; font-weight: 900; color: #fff; }
+
+        /* BIG ALERT - IMPROVED */
+        #big-alert { 
+            position: absolute; top: 40%; transform: scale(0); opacity: 0;
+            font-family: 'Oswald', sans-serif; font-size: 90px; font-weight: 900; 
+            color: #fff; background: rgba(0,0,0,0.95); padding: 10px 80px; 
+            border-radius: 20px; border-bottom: 10px solid var(--gold); 
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            z-index: 5000; text-transform: uppercase; letter-spacing: 5px;
+            pointer-events: none;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        }
+        .show-alert { transform: scale(1) !important; opacity: 1 !important; }
+
+        .tour-header { background: linear-gradient(90deg, #ca8a04, var(--gold), #ca8a04); color: #000; font-size: 11px; width: 620px; text-align: center; padding: 4px 0; border-radius: 10px 10px 0 0; text-transform: uppercase; font-weight: 900; letter-spacing: 1px; position: relative; font-family: 'Oswald', sans-serif; }
+        #pp-badge { position: absolute; right: 12px; top: 3px; background: var(--red); color: white; padding: 0 8px; border-radius: 4px; font-size: 10px; animation: blinker 1s linear infinite; font-weight: 900; }
+        #fh-badge { display: none; background: #ea580c; color: white; font-size: 9px; padding: 1px 5px; border-radius: 3px; margin-left: 5px; vertical-align: middle; animation: blinker 0.6s infinite; }
+        @keyframes blinker { 50% { opacity: 0.3; } }
+
+        .widget-box { display: flex; width: 620px; height: 62px; background: var(--bg); border: 1px solid rgba(255,255,255,0.1); overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
+        .team-side { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 75px; background: rgba(255,255,255,0.03); border-right: 1px solid rgba(255,255,255,0.1); }
+        .t-logo { width: 34px; height: 34px; object-fit: contain; border-radius: 50%; background: #fff; border: 2px solid var(--gold); }
+        .t-name { font-size: 11px; font-weight: 900; color: #fff; margin-top: 2px; font-family: 'Oswald', sans-serif; }
+
+        .bat-col { display: flex; flex-direction: column; width: 175px; border-right: 1px solid rgba(255,255,255,0.1); }
+        .bat-row { flex: 1; display: flex; align-items: center; padding: 0 12px; font-size: 13px; color: #e2e8f0; position: relative; border-bottom: 1px solid rgba(255,255,255,0.05); font-weight: 700; transition: 0.2s; }
+        .bat-row.active { background: rgba(34, 197, 111, 0.2); color: #fff; }
+        .bat-row.active::before { content: ''; position: absolute; left: 0; top: 0; width: 4px; height: 100%; background: var(--strike); box-shadow: 0 0 8px var(--strike); }
+        
+        .b-name { flex-grow: 1; overflow: hidden; white-space: nowrap; text-transform: uppercase; font-size: 12px; font-weight: 700; }
+        .b-score-area { display: flex; flex-direction: column; align-items: flex-end; line-height: 1; }
+        .b-runs { font-weight: 900; font-size: 16px; color: var(--gold); font-family: 'Oswald', sans-serif; }
+        .b-sr-small { font-size: 9px; color: #94a3b8; font-weight: 700; margin-top: 2px; }
+
+        .score-center { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 140px; background: linear-gradient(135deg, #fff, #f8fafc); color: #000; line-height: 0.8; border-right: 1px solid #cbd5e1; }
+        .r-main { font-size: 26px; font-weight: 900; font-family: 'Oswald', sans-serif; letter-spacing: -1px; color: #1e293b; }
+        .o-main { font-size: 11px; font-weight: 900; color: #1e293b; margin-top: 4px; }
+        .pship-tag { font-size: 9px; background: #000; color: #fff; padding: 2px 8px; border-radius: 12px; margin-top: 4px; font-weight: 900; }
+
+        .bw-col { display: flex; flex-direction: column; justify-content: center; padding: 0 12px; width: 180px; }
+        .bw-name { font-size: 12px; font-weight: 900; color: var(--gold); text-transform: uppercase; font-family: 'Oswald', sans-serif; }
+        .bw-stats { font-size: 13px; font-weight: 900; color: #fff; margin-top: -1px; font-family: 'Oswald', sans-serif; }
+        .tracker { display: flex; gap: 5px; margin-top: 5px; }
+        .ball { width: 18px; height: 18px; border-radius: 50%; background: #334155; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: #fff; border: 1px solid rgba(255,255,255,0.1); transition: 0.1s; }
+
+        .ticker-bar { width: 620px; background: linear-gradient(90deg, #0f0f0f, #1a1a2e, #0f0f0f); color: var(--gold); font-size: 13px; padding: 5px 0; border-radius: 0 0 12px 12px; text-align: center; font-weight: 900; border-top: 1px solid rgba(255,255,255,0.1); text-transform: uppercase; letter-spacing: 1px; font-family: 'Oswald', sans-serif; }
+    </style>
+</head>
+<body>
+
+    <div id="p-card-1" class="player-card"><img id="p-img-1" class="p-img" src=""><div class="p-details"><h2 id="p-name-1">P1</h2><p id="p-runs-1">0 RUNS</p><p id="p-sr-1" style="color:var(--gold)">SR: 0.0</p></div></div>
+    <div id="p-card-2" class="player-card"><img id="p-img-2" class="p-img" src=""><div class="p-details"><h2 id="p-name-2">P2</h2><p id="p-runs-2">0 RUNS</p><p id="p-sr-2" style="color:var(--gold)">SR: 0.0</p></div></div>
+    <div id="p-card-bw" class="player-card"><img id="p-img-bw" class="p-img" src=""><div class="p-details"><h2 id="p-name-bw">BOWLER</h2><p id="p-stat-bw">0-0 (0.0)</p><p id="p-eco-bw" style="color:var(--gold)">ECO: 0.0</p></div></div>
+
+    <div id="big-alert">SIX!</div>
+
+    <div class="tour-header">
+        <span id="toss-display">LIVE BROADCAST</span> | <span id="max-ovr-txt">20</span> OVERS MATCH 
+        <div id="pp-badge">⚡ POWERPLAY ⚡</div>
+    </div>
+
+    <div class="widget-box">
+        <div class="team-side"><img id="logo-l" class="t-logo" src=""><span class="t-name" id="name-l">T1</span></div>
+        <div class="bat-col">
+            <div class="bat-row" id="p1-box"><span class="b-name" id="p1-n">P1</span><div class="b-score-area"><span class="b-runs" id="p1-r">0 (0)</span><span class="b-sr-small" id="p1-sr-m">SR: 0.0</span></div></div>
+            <div class="bat-row" id="p2-box"><span class="b-name" id="p2-n">P2</span><div class="b-score-area"><span class="b-runs" id="p2-r">0 (0)</span><span class="b-sr-small" id="p2-sr-m">SR: 0.0</span></div></div>
+        </div>
+        <div class="score-center">
+            <div class="r-main" id="m-runs">0/0</div>
+            <div class="o-main" id="m-ovrs">0.0</div>
+            <div class="pship-tag">🤝 P'SHIP: <span id="m-pship">0 (0)</span></div>
+        </div>
+        <div class="bw-col">
+            <div class="bw-name" id="bw-n">BOWLER <span id="fh-badge">FREE HIT</span></div>
+            <div class="bw-stats"><span id="bw-f">0-0 (0.0)</span></div>
+            <div class="tracker" id="ball-tracker"><div class="ball"></div><div class="ball"></div><div class="ball"></div><div class="ball"></div><div class="ball"></div><div class="ball"></div></div>
+        </div>
+        <div class="team-side" style="border-left:1px solid rgba(255,255,255,0.1); border-right:none"><img id="logo-r" class="t-logo" src=""><span class="t-name" id="name-r">T2</span></div>
+    </div>
+    <div class="ticker-bar" id="ticker-box">LIVE BROADCAST</div>
+
+<script>
+    // Firebase Config (YOURS - unchanged)
+    const firebaseConfig = { 
+        apiKey: "AIzaSyCSATMd4KpT98ZkvYfT00KzIW3cwNzdNbY", 
+        authDomain: "vipppppp-9b631.firebaseapp.com", 
+        databaseURL: "https://vipppppp-9b631-default-rtdb.firebaseio.com", 
+        projectId: "vipppppp-9b631", 
+        storageBucket: "vipppppp-9b631.firebasestorage.app", 
+        messagingSenderId: "764700437145", 
+        appId: "1:764700437145:web:9be9d9aa45829098412608" 
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const dbRef = firebase.database().ref('matchData');
+    
+    // Local cache for instant updates
+    let localData = {};
+    let lastAnimTime = 0;
+    let animationTimeout = null;
+    
+    // Helper: Calculate SR
+    function calcSR(runs, balls) {
+        if (!balls || balls === 0) return "0.0";
+        return ((runs / balls) * 100).toFixed(1);
+    }
+    
+    // Show big alert animation
+    function showAlert(trigger, animTime) {
+        if (animTime === lastAnimTime) return;
+        lastAnimTime = animTime;
+        
+        if (animationTimeout) clearTimeout(animationTimeout);
+        
+        const alertBox = document.getElementById('big-alert');
+        alertBox.classList.remove('show-alert');
+        
+        // Force reflow
+        void alertBox.offsetWidth;
+        
+        let text = '';
+        let color = '';
+        if (trigger === 'W') { text = '⚡ OUT! ⚡'; color = 'var(--red)'; }
+        else if (trigger === '6') { text = '🔥 SIX! 🔥'; color = 'var(--blue)'; }
+        else if (trigger === '4') { text = '💥 FOUR! 💥'; color = 'var(--yellow)'; }
+        else return;
+        
+        alertBox.innerText = text;
+        alertBox.style.color = color;
+        alertBox.style.borderBottomColor = color;
+        alertBox.classList.add('show-alert');
+        
+        animationTimeout = setTimeout(() => {
+            alertBox.classList.remove('show-alert');
+        }, 2500);
+    }
+    
+    // Main render function - ULTRA FAST (no delays)
+    function renderUI(data) {
+        if (!data) return;
+        
+        // Score updates
+        const runs = Number(data.runs) || 0;
+        const wkt = Number(data.wkt) || 0;
+        const ovr = Number(data.ovr) || 0;
+        const ball = Number(data.ball) || 0;
+        
+        document.getElementById('m-runs').innerText = runs + "/" + wkt;
+        document.getElementById('m-ovrs').innerText = ovr + "." + ball;
+        document.getElementById('m-pship').innerText = (Number(data.pship) || 0) + " (" + (Number(data.pshipB) || 0) + ")";
+        document.getElementById('toss-display').innerText = data.toss || 'LIVE BROADCAST';
+        document.getElementById('max-ovr-txt').innerText = data.matchOvers || 20;
+        
+        // Ball Tracker - INSTANT
+        const slots = document.getElementById('ball-tracker').children;
+        for (let i = 0; i < 6; i++) {
+            slots[i].innerText = '';
+            slots[i].style.background = '#334155';
+        }
+        if (data.thisOver && Array.isArray(data.thisOver)) {
+            data.thisOver.slice(0, 6).forEach((v, i) => {
+                if (v) {
+                    slots[i].innerText = v;
+                    if (v == "6") slots[i].style.background = "var(--blue)";
+                    else if (v == "4") slots[i].style.background = "var(--yellow)";
+                    else if (v == "W") slots[i].style.background = "var(--red)";
+                    else if (v == "WD" || v == "NB") slots[i].style.background = "var(--orange)";
+                }
+            });
+        }
+        
+        // Batsmen Stats
+        let b1r = Number(data.b1r) || 0;
+        let b1b = Number(data.b1b) || 0;
+        let b2r = Number(data.b2r) || 0;
+        let b2b = Number(data.b2b) || 0;
+        let sr1 = calcSR(b1r, b1b);
+        let sr2 = calcSR(b2r, b2b);
+        
+        document.getElementById('p1-n').innerText = (data.b1n || 'P1').substring(0, 10);
+        document.getElementById('p1-r').innerText = b1r + " (" + b1b + ")";
+        document.getElementById('p1-sr-m').innerText = "SR: " + sr1;
+        document.getElementById('p2-n').innerText = (data.b2n || 'P2').substring(0, 10);
+        document.getElementById('p2-r').innerText = b2r + " (" + b2b + ")";
+        document.getElementById('p2-sr-m').innerText = "SR: " + sr2;
+        
+        // Active strike highlight
+        const onStrike = Number(data.onStrike) || 1;
+        document.getElementById('p1-box').className = onStrike === 1 ? 'bat-row active' : 'bat-row';
+        document.getElementById('p2-box').className = onStrike === 2 ? 'bat-row active' : 'bat-row';
+        
+        // Bowler stats
+        let bwb = Number(data.bwb) || 0;
+        let bwr = Number(data.bwr) || 0;
+        let bwk = Number(data.bwk) || 0;
+        document.getElementById('bw-n').innerHTML = (data.bwn || 'BOWLER').substring(0, 15) + '<span id="fh-badge" style="display:' + (data.isFreeHit ? 'inline-block' : 'none') + '">FREE HIT</span>';
+        document.getElementById('bw-f').innerText = bwr + "-" + bwk + " (" + Math.floor(bwb / 6) + "." + (bwb % 6) + ")";
+        
+        // Badges
+        document.getElementById('pp-badge').style.display = data.isPP ? "block" : "none";
+        
+        // Ticker / Projected Score
+        let totalBalls = (Number(data.matchOvers) || 20) * 6;
+        let playedBalls = (ovr * 6) + ball;
+        
+        if (data.showTarget && Number(data.target) > 0) {
+            let needRuns = Number(data.target) - runs;
+            if (needRuns <= 0) {
+                document.getElementById('ticker-box').innerHTML = "🏆 MATCH FINISHED 🏆";
+            } else {
+                let ballsLeft = totalBalls - playedBalls;
+                let reqRR = ballsLeft > 0 ? (needRuns / (ballsLeft / 6)).toFixed(2) : "0.00";
+                document.getElementById('ticker-box').innerHTML = `🎯 NEED ${needRuns} RUNS | ${ballsLeft} BALLS LEFT | REQ RR: ${reqRR}`;
+            }
+        } else {
+            let projected = playedBalls > 0 ? ((runs / playedBalls) * totalBalls).toFixed(0) : 0;
+            document.getElementById('ticker-box').innerHTML = data.ticker || `📊 PROJECTED SCORE: ${projected} | CRR: ${((runs / (playedBalls || 1)) * 6).toFixed(2)}`;
+        }
+        
+        // Teams Info
+        if (data.tAl) document.getElementById('logo-l').src = data.tAl;
+        if (data.tBl) document.getElementById('logo-r').src = data.tBl;
+        document.getElementById('name-l').innerText = (data.tAn || 'T1').toUpperCase();
+        document.getElementById('name-r').innerText = (data.tBn || 'T2').toUpperCase();
+        
+        // Popup Cards
+        if (data.showP1) {
+            document.getElementById('p-name-1').innerText = data.b1n || 'P1';
+            if (data.p1Pic) document.getElementById('p-img-1').src = data.p1Pic;
+            document.getElementById('p-runs-1').innerHTML = `<span style="color:var(--gold);">🏏</span> ${b1r} RUNS (${b1b} B)`;
+            document.getElementById('p-sr-1').innerHTML = `SR: ${sr1}`;
+            document.getElementById('p-card-1').classList.add('show');
+        } else {
+            document.getElementById('p-card-1').classList.remove('show');
+        }
+        
+        if (data.showP2) {
+            document.getElementById('p-name-2').innerText = data.b2n || 'P2';
+            if (data.p2Pic) document.getElementById('p-img-2').src = data.p2Pic;
+            document.getElementById('p-runs-2').innerHTML = `<span style="color:var(--gold);">🏏</span> ${b2r} RUNS (${b2b} B)`;
+            document.getElementById('p-sr-2').innerHTML = `SR: ${sr2}`;
+            document.getElementById('p-card-2').classList.add('show');
+        } else {
+            document.getElementById('p-card-2').classList.remove('show');
+        }
+        
+        if (data.showPBw) {
+            document.getElementById('p-name-bw').innerText = data.bwn || 'BOWLER';
+            if (data.bwPic) document.getElementById('p-img-bw').src = data.bwPic;
+            let eco = playedBalls > 0 ? ((bwr / playedBalls) * 6).toFixed(2) : "0.00";
+            document.getElementById('p-stat-bw').innerHTML = `${bwr}/${bwk} (${Math.floor(bwb/6)}.${bwb%6})`;
+            document.getElementById('p-eco-bw').innerHTML = `ECO: ${eco}`;
+            document.getElementById('p-card-bw').classList.add('show');
+        } else {
+            document.getElementById('p-card-bw').classList.remove('show');
+        }
+        
+        // Animation trigger
+        if (data.animTrigger && data.animTime && data.animTime !== lastAnimTime) {
+            showAlert(data.animTrigger, data.animTime);
+        }
+    }
+    
+    // Firebase REAL-TIME listener - NO DELAY, NO REFRESH
+    dbRef.on('value', (snapshot) => {
+        const fbData = snapshot.val();
+        if (fbData) {
+            localData = fbData;
+            renderUI(localData);
+        }
+    });
+    
+    // Initial render
+    renderUI({});
+</script>
+</body>
+</html>
